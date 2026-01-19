@@ -9,11 +9,10 @@ jobs:
   crawl:
     runs-on: ubuntu-latest
     env:
-      GH_PAT: ${{ secrets.GH_PAT }}  # Crawlers → GitHub 업로드용
+      GH_PAT: ${{ secrets.GH_PAT }}
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,4 +28,4 @@ jobs:
           python crawlers/urban_dictionary.py
           python crawlers/wiktionary_slang.py
           python pipeline/deduplicate.py
-          python crawlers_to_github.py  # <-- 여기서 Repo에 CSV 업로드
+          python crawlers_to_github.py  # Repo에 CSV 업로드
