@@ -1,15 +1,17 @@
+# 파일명: crawlers_to_github.py
+import os
 import pandas as pd
 from github import Github
 
 # =====================
 # 1. Crawlers CSV 경로
-CSV_PATH = "output/raw_terms_clean.csv"  # Crawlers 결과 CSV
+CSV_PATH = "output/raw_terms_clean.csv"
 # =====================
 
 # =====================
-# 2. GitHub 설정
-GITHUB_TOKEN = "GH_PAT"  # GitHub PAT
-REPO_NAME = "global_slang_dictionary"       # Crawlers Repo 이름
+# 2. GitHub 연결 (환경변수 GH_PAT 사용)
+GITHUB_TOKEN = os.getenv("GH_PAT")  # GH_PAT 시크릿으로 불러오기
+REPO_NAME = "global_slang_dictionary"  # 기존 Crawlers Repo 이름
 # =====================
 
 # CSV 읽기
