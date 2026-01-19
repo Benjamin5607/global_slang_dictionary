@@ -8,7 +8,7 @@ CSV_PATH = "output/raw_terms_clean.csv"  # Crawlers 결과 CSV
 
 # =====================
 # 2. GitHub 설정
-GITHUB_TOKEN = "GitHub_PAT"  # GitHub PAT
+GITHUB_TOKEN = "GH_PAT"  # GitHub PAT
 REPO_NAME = "global_slang_dictionary"       # Crawlers Repo 이름
 # =====================
 
