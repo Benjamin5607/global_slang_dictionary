@@ -2,6 +2,8 @@ import requests
 import csv
 from tqdm import tqdm
 
+os.makedirs("output", exist_ok=True)
+
 OUTPUT = "output/raw_terms.csv"
 
 def fetch_terms(pages=20):
