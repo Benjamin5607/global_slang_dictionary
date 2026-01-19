@@ -5,7 +5,7 @@ import os
 
 os.makedirs("output", exist_ok=True)
 
-OUTPUT = "output/raw_terms.csv"
+OUTPUT = "output/raw_terms_urban.csv"
 
 def fetch_terms(pages=20):
     rows = []
