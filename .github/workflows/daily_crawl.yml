@@ -26,7 +26,6 @@ jobs:
         run: |
           python crawlers/urban_dictionary.py
           python crawlers/wiktionary_slang.py
-          python crawlers/reddit_slang.py
           python pipeline/deduplicate.py
 
       - name: Upload artifacts
