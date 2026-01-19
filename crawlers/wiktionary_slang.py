@@ -12,7 +12,7 @@ LANGS = {
     "it": "Italian_slang"
 }
 
-OUTPUT = "output/raw_terms.csv"
+OUTPUT = "output/raw_terms_wiktionary.csv"
 
 def run():
     rows = []
