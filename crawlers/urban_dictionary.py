@@ -1,6 +1,7 @@
 import requests
 import csv
 from tqdm import tqdm
+import os
 
 os.makedirs("output", exist_ok=True)
 
