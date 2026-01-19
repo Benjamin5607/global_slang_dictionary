@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import csv
 
 urban_csv = "output/raw_terms_urban.csv"
 wiki_csv  = "output/raw_terms_wiktionary.csv"
