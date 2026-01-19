@@ -30,5 +30,5 @@ if df.shape[1] == 5:
 df["normalized"] = df["term"].str.lower().str.replace(r"[^a-z0-9]", "", regex=True)
 df = df.drop_duplicates(subset=["normalized", "language"])
 
-df.to_csv("output/raw_terms_clean.csv", index=False, encoding="utf-8")
-print(f"✅ raw_terms_clean.csv 생성 완료: {len(df)}개 항목")
+df.to_csv("output/raw_terms_clean.csv", index=False, encoding="utf-8", quoting=csv.QUOTE_ALL)
+print("✅ raw_terms_clean.csv 생성 완료:", len(df), "개 항목")
