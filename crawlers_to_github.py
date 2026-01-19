@@ -4,29 +4,33 @@ import pandas as pd
 from github import Github
 
 # =====================
-# 1. Crawlers CSV 경로
-CSV_PATH = "output/raw_terms_clean.csv"
+# Crawlers CSV 경로
+OUTPUT = "output/raw_terms.csv"
+os.makedirs("output", exist_ok=True)  # 폴더 없으면 생성
 # =====================
 
+# Crawlers 결과 DataFrame 예시
+# 실제로는 urban_dictionary.py 등에서 DataFrame 가져오도록 수정
+df = pd.DataFrame([
+    ["slang1", "definition1", "en"],
+    ["slang2", "definition2", "en"]
+])
+df.to_csv(OUTPUT, index=False, encoding="utf-8")
+
 # =====================
-# 2. GitHub 연결 (환경변수 GH_PAT 사용)
-GITHUB_TOKEN = os.getenv("GH_PAT")  # GH_PAT 시크릿으로 불러오기
-REPO_NAME = "global_slang_dictionary"  # 기존 Crawlers Repo 이름
+# GitHub 업로드
+GITHUB_TOKEN = os.getenv("GH_PAT")  # GitHub Secret
+REPO_NAME = "global_slang_dictionary"
+FILE_PATH = OUTPUT  # 그대로 output/raw_terms.csv
 # =====================
 
-# CSV 읽기
-df = pd.read_csv(CSV_PATH)
-csv_content = df.to_csv(index=False, encoding="utf-8")
-
-# GitHub 연결
 g = Github(GITHUB_TOKEN)
 repo = g.get_user().get_repo(REPO_NAME)
 
-# GitHub 업데이트
 try:
-    file = repo.get_contents(CSV_PATH)
-    repo.update_file(file.path, "Update raw_terms", csv_content, file.sha)
-    print(f"✅ CSV updated in GitHub: {CSV_PATH}")
+    file = repo.get_contents(FILE_PATH)
+    repo.update_file(file.path, "Update raw_terms", open(FILE_PATH, "r", encoding="utf-8").read(), file.sha)
+    print(f"✅ CSV updated in GitHub: {FILE_PATH}")
 except:
-    repo.create_file(CSV_PATH, "Create raw_terms", csv_content)
-    print(f"✅ CSV created in GitHub: {CSV_PATH}")
+    repo.create_file(FILE_PATH, "Create raw_terms", open(FILE_PATH, "r", encoding="utf-8").read())
+    print(f"✅ CSV created in GitHub: {FILE_PATH}")
