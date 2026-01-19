@@ -3,36 +3,27 @@ import pandas as pd
 from github import Github
 
 # =====================
-# Crawlers 결과 경로
-OUTPUT = "output/raw_terms_clean.csv"
-os.makedirs("output", exist_ok=True)
+# GitHub 설정
+GITHUB_TOKEN = os.environ["GH_PAT"]       # 리포지토리 시크릿
+REPO_NAME    = "Benjamin5607/global_slang_dictionary"
+COMMIT_MSG   = "Update raw_terms_clean.csv"
+FILE_PATH    = "output/raw_terms_clean.csv"
+TARGET_PATH  = "output/raw_terms_clean.csv"  # 리포지토리 내 경로
 # =====================
 
-# 예시 DataFrame (실제로는 Urban Dictionary, Wiktionary Crawlers에서 생성된 CSV 읽으면 됨)
-df_urban = pd.read_csv("output/raw_terms_urban.csv")
-df_wiki = pd.read_csv("output/raw_terms_wiktionary.csv")
-df = pd.concat([df_urban, df_wiki], ignore_index=True)
+# 1️⃣ 파일 읽기
+df = pd.read_csv(FILE_PATH)
+content = df.to_csv(index=False, encoding="utf-8")
 
-# 중복 제거
-df.drop_duplicates(subset=["term"], inplace=True)
-
-# 최종 CSV 저장
-df.to_csv(OUTPUT, index=False, encoding="utf-8")
-
-# =====================
-# GitHub 업로드
-GITHUB_TOKEN = os.getenv("GH_PAT")
-REPO_NAME = "Benjamin5607/global_slang_dictionary"  # 변경 필요
-FILE_PATH = OUTPUT  # 그대로 output/raw_terms_clean.csv
-# =====================
-
+# 2️⃣ GitHub 연결
 g = Github(GITHUB_TOKEN)
 repo = g.get_repo(REPO_NAME)
 
+# 3️⃣ 기존 파일 확인 후 업데이트 또는 새로 생성
 try:
-    file = repo.get_contents(FILE_PATH)
-    repo.update_file(file.path, "Update raw_terms_clean.csv", open(FILE_PATH, "r", encoding="utf-8").read(), file.sha)
-    print(f"✅ CSV updated in GitHub: {FILE_PATH}")
+    f = repo.get_contents(TARGET_PATH)
+    repo.update_file(f.path, COMMIT_MSG, content, f.sha)
+    print(f"✅ {TARGET_PATH} updated in GitHub")
 except:
-    repo.create_file(FILE_PATH, "Create raw_terms_clean.csv", open(FILE_PATH, "r", encoding="utf-8").read())
-    print(f"✅ CSV created in GitHub: {FILE_PATH}")
+    repo.create_file(TARGET_PATH, COMMIT_MSG, content)
+    print(f"✅ {TARGET_PATH} created in GitHub")
