@@ -1,65 +1,73 @@
-import requests
-import csv
-import os
-from bs4 import BeautifulSoup
+name: Daily Slang Crawl
 
-os.makedirs("output", exist_ok=True)
-OUTPUT = "output/raw_terms_wiktionary.csv"
+on:
+  schedule:
+    - cron: "0 2 * * *"  # 매일 UTC 02:00 (한국 시간 오전 11:00) 실행
+  workflow_dispatch:     # 수동 실행 버튼 활성화
 
-# 언어별 카테고리 정확한 명칭
-LANGS = {
-    "ko": "Korean_slang",
-    "ja": "Japanese_slang",
-    "fr": "French_slang",
-    "de": "German_slang",
-    "ru": "Russian_slang",
-    "es": "Spanish_slang",
-    "pt": "Portuguese_slang",
-    "it": "Italian_slang"
-}
+# 레포지토리에 파일(CSV)을 저장(Push)하기 위한 권한 설정
+permissions:
+  contents: write
 
-def run():
-    print("🚀 Wiktionary Crawling Start...")
-    rows = []
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+jobs:
+  crawl-and-sync:
+    runs-on: ubuntu-latest
 
-    for lang, category in LANGS.items():
-        # URL 뒤에 ?limit=500 붙여서 한 번에 많이 가져오기
-        url = f"https://en.wiktionary.org/wiki/Category:{category}"
-        try:
-            res = requests.get(url, headers=headers, timeout=10)
-            res.encoding = 'utf-8' # 🛠️ 한글 깨짐 방지 강제 인코딩
-            
-            if res.status_code != 200:
-                continue
-            
-            soup = BeautifulSoup(res.text, "html.parser")
-            category_groups = soup.find_all("div", class_="mw-category-group")
-            
-            for group in category_groups:
-                links = group.find_all("a")
-                for link in links:
-                    term = link.get_text() # 🛠️ 화면에 보이는 글자 그대로 가져옴 (원어)
-                    if term:
-                        rows.append([
-                            term,
-                            f"Wiktionary ({category})",
-                            "Wiktionary",
-                            lang,
-                            lang.upper()
-                        ])
-        except Exception as e:
-            print(f"❌ Error in {lang}: {e}")
+    steps:
+      # 1. 저장소 코드 체크아웃
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    # utf-8-sig로 저장해야 엑셀/윈도우에서 안 깨짐
-    with open(OUTPUT, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f)
-        writer.writerow(["term", "definition", "source", "language", "country"])
-        writer.writerows(rows)
-        
-    print(f"✅ Wiktionary finished. {len(rows)} terms saved.")
+      # 2. 파이썬 3.10 설정
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: 'pip'
 
-if __name__ == "__main__":
-    run()
+      # 3. 필수 라이브러리 설치
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # 4. 크롤러 4대장 실행 (하나가 실패해도 멈추지 않음)
+      - name: Run Crawlers
+        run: |
+          mkdir -p output
+          echo "🕷️ Crawling Urban Dictionary..."
+          python crawlers/urban_dictionary.py || echo "⚠️ Urban failed"
+          
+          echo "🕷️ Crawling Wiktionary..."
+          python crawlers/wiktionary_slang.py || echo "⚠️ Wiktionary failed"
+          
+          echo "🕷️ Crawling Reddit..."
+          python crawlers/reddit_slang.py || echo "⚠️ Reddit failed"
+          
+          echo "🕷️ Scavenging GitHub Lists..."
+          python crawlers/github_lists.py || echo "⚠️ GitHub Lists failed"
+
+      # 5. 데이터 통합 및 정제 (deduplicate)
+      - name: Run Deduplication Pipeline
+        run: |
+          echo "🧹 Running Deduplication..."
+          python pipeline/deduplicate.py
+
+      # 6. 결과 파일(CSV)을 GitHub 레포에 커밋 & 푸시
+      - name: Commit & Push Changes
+        run: |
+          git config --global user.name "SlangBot"
+          git config --global user.email "bot@slang.com"
+          
+          # 파일이 변경되었는지 확인하고 커밋
+          git add output/raw_terms_clean.csv
+          
+          # 변경 사항이 없으면 에러 내지 않고 조용히 종료 (exit 0)
+          git commit -m "🔥 Daily Update: Slang Data" || exit 0
+          
+          git push
+
+      # 7. Google Apps Script 깨우기 (Webhook 호출)
+      - name: Trigger Google Apps Script
+        run: |
+          echo "🔔 Waking up Google Sheets..."
+          curl -L "${{ secrets.GAS_WEBHOOK_URL }}"
