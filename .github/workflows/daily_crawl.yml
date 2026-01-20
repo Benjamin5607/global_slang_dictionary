@@ -2,30 +2,74 @@ name: Daily Slang Crawl
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # 매일 UTC 02:00
-  workflow_dispatch:
+    - cron: "0 2 * * *"  # 매일 UTC 02:00 (한국 시간 오전 11:00) 실행
+  workflow_dispatch:     # GitHub 웹에서 수동 실행 버튼 활성화
+
+permissions:
+  contents: write        # 레포지토리 쓰기 권한 (Artifact 업로드 등에 필요)
 
 jobs:
-  crawl:
+  crawl-and-sync:
     runs-on: ubuntu-latest
+    
+    # crawlers_to_github.py에서 사용할 GH_PAT 시크릿 주입
     env:
       GH_PAT: ${{ secrets.GH_PAT }}
 
     steps:
-      - uses: actions/checkout@v4
+      # 1. 코드 체크아웃
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Python
+      # 2. 파이썬 3.10 설정 (pip 캐시 활성화로 속도 향상)
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: 'pip'
 
-      - name: Install dependencies
+      # 3. 라이브러리 설치
+      - name: Install Dependencies
         run: |
-          pip install -r requirements.txt pygithub pandas
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # requirements.txt 업데이트를 깜빡했을 경우를 대비해 필수 패키지 강제 설치
+          pip install requests pandas pygithub tqdm beautifulsoup4
 
-      - name: Run Crawlers + Upload to GitHub
+      # 4. 크롤러 실행 (하나가 실패해도 다음 꺼는 실행되도록 처리)
+      - name: 1. Run Crawlers
         run: |
-          python crawlers/urban_dictionary.py
-          python crawlers/wiktionary_slang.py
+          mkdir -p output
+          
+          echo "🕷️ Running Urban Dictionary Crawler..."
+          python crawlers/urban_dictionary.py || echo "⚠️ Urban Dictionary failed, skipping..."
+
+          echo "🕷️ Running Wiktionary Crawler..."
+          python crawlers/wiktionary_slang.py || echo "⚠️ Wiktionary failed, skipping..."
+
+          echo "🕷️ Running Reddit Crawler..."
+          python crawlers/reddit_slang.py || echo "⚠️ Reddit failed, skipping..."
+
+          echo "🕷️ Running GitHub List Scavenger..."
+          python crawlers/github_lists.py || echo "⚠️ GitHub Scavenger failed, skipping..."
+
+      # 5. 데이터 정제 및 통합
+      - name: 2. Run Deduplication Pipeline
+        run: |
+          echo "🧹 Running Deduplication & Merge..."
           python pipeline/deduplicate.py
-          python crawlers_to_github.py  # Repo에 CSV 업로드
+
+      # 6. 결과 파일 GitHub Repo에 커밋/업데이트 (Python 스크립트 사용)
+      - name: 3. Sync to GitHub Repo
+        run: |
+          echo "💾 Syncing to GitHub Repository..."
+          python crawlers_to_github.py
+
+      # 7. (보너스) 실행 결과 CSV를 Artifact로도 저장 (백업용, 다운로드 가능)
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        if: always()  # 앞 단계가 실패해도 로그/결과는 남김
+        with:
+          name: raw_terms_clean
+          path: output/raw_terms_clean.csv
+          retention-days: 7
