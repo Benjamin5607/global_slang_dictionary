@@ -1,6 +1,5 @@
 requests
-beautifulsoup4
 pandas
-pyyaml
-praw
+pygithub
 tqdm
+beautifulsoup4
