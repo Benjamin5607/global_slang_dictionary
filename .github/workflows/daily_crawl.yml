@@ -1,62 +1,65 @@
-name: Daily Slang Crawl
+import requests
+import csv
+import os
+from bs4 import BeautifulSoup
 
-on:
-  schedule:
-    - cron: "0 0 * * *"  # 매일 UTC 00:00 (한국 시간 오전 9:00)
-  workflow_dispatch:     # 수동 실행 버튼
+os.makedirs("output", exist_ok=True)
+OUTPUT = "output/raw_terms_wiktionary.csv"
 
-# GitHub 레포에 쓸 수 있는 권한 부여
-permissions:
-  contents: write
+# 언어별 카테고리 정확한 명칭
+LANGS = {
+    "ko": "Korean_slang",
+    "ja": "Japanese_slang",
+    "fr": "French_slang",
+    "de": "German_slang",
+    "ru": "Russian_slang",
+    "es": "Spanish_slang",
+    "pt": "Portuguese_slang",
+    "it": "Italian_slang"
+}
 
-jobs:
-  crawl-and-sync:
-    runs-on: ubuntu-latest
+def run():
+    print("🚀 Wiktionary Crawling Start...")
+    rows = []
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-    steps:
-      # 1. 코드 가져오기
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    for lang, category in LANGS.items():
+        # URL 뒤에 ?limit=500 붙여서 한 번에 많이 가져오기
+        url = f"https://en.wiktionary.org/wiki/Category:{category}"
+        try:
+            res = requests.get(url, headers=headers, timeout=10)
+            res.encoding = 'utf-8' # 🛠️ 한글 깨짐 방지 강제 인코딩
+            
+            if res.status_code != 200:
+                continue
+            
+            soup = BeautifulSoup(res.text, "html.parser")
+            category_groups = soup.find_all("div", class_="mw-category-group")
+            
+            for group in category_groups:
+                links = group.find_all("a")
+                for link in links:
+                    term = link.get_text() # 🛠️ 화면에 보이는 글자 그대로 가져옴 (원어)
+                    if term:
+                        rows.append([
+                            term,
+                            f"Wiktionary ({category})",
+                            "Wiktionary",
+                            lang,
+                            lang.upper()
+                        ])
+        except Exception as e:
+            print(f"❌ Error in {lang}: {e}")
 
-      # 2. 파이썬 세팅
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-          cache: 'pip'
+    # utf-8-sig로 저장해야 엑셀/윈도우에서 안 깨짐
+    with open(OUTPUT, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(["term", "definition", "source", "language", "country"])
+        writer.writerows(rows)
+        
+    print(f"✅ Wiktionary finished. {len(rows)} terms saved.")
 
-      # 3. 라이브러리 설치
-      - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt
-
-      # 4. 크롤러 4대장 출격 (실패해도 계속 진행)
-      - name: Run Crawlers
-        run: |
-          mkdir -p output
-          python crawlers/urban_dictionary.py || echo "⚠️ Urban failed"
-          python crawlers/wiktionary_slang.py || echo "⚠️ Wiki failed"
-          python crawlers/reddit_slang.py || echo "⚠️ Reddit failed"
-          python crawlers/github_lists.py || echo "⚠️ GitHub Lists failed"
-
-      # 5. 데이터 하나로 합치기
-      - name: Run Deduplication
-        run: |
-          python pipeline/deduplicate.py
-
-      # 6. 결과 파일 GitHub에 저장 (Commit & Push)
-      - name: Commit & Push Changes
-        run: |
-          git config --global user.name "SlangBot"
-          git config --global user.email "bot@slang.com"
-          
-          # 변경된 파일이 있을 때만 커밋
-          git add output/raw_terms_clean.csv
-          git commit -m "🔥 Daily Update: Slang Data" || exit 0
-          git push
-
-      # 7. 앱스크립트 깨우기 (Webhook)
-      - name: Trigger Apps Script
-        run: |
-          echo "🔔 Waking up Google Sheets..."
-          curl -L "${{ secrets.GAS_WEBHOOK_URL }}"
+if __name__ == "__main__":
+    run()
