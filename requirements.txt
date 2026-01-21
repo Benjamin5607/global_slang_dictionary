@@ -3,3 +3,5 @@ pandas
 pygithub
 tqdm
 beautifulsoup4
+praw
+fake-useragent
